@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>game by Arbuzik</title>
+<style>
+body {
+background-color: green;
+font-family: Arial, sans-serif;
+text-align: center;
+padding: 20px;
+font-size: 16px;
+}
+h1 {
+color: #fff;
+font-size: 28px;
+}
+@keyframes slide-down {
+0% {
+transform: translateY(-100%);
+opacity: 0;
+}
+100% {
+transform: translateY(0);
+opacity: 1;
+}
+}
+#mainMenu h1 {
+animation: slide-down 1s ease-in-out;
+}
+#clickCount {
+font-size: 24px;
+font-weight: bold;
+margin: 20px 0;
+}
+#balance {
+font-size: 16px;
+font-weight: bold;
+color: #fff;
+}
+button {
+background-color: #4CAF50;
+border: none;
+color: white;
+padding: 10px 20px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+font-size: 16px;
+margin: 10px;
+cursor: pointer;
+}
+button:disabled {
+background-color: #ccc;
+cursor: not-allowed;
+}
+#mainMenu, #gameScreen, #shopMenu, #settingsMenu, #gameSelectMenu , #gameclickmenu {
+display: none;
+}
+
+#gameSelectMenu {
+background-color: red;
+}
+
+#gameScreen {
+  background-color: green;
+}
+
+@keyframes slide-up {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  #clickCount {
+    font-size: 18px;
+  }
+  button {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+  h1 {
+    font-size: 32px;
+  }
+  #clickCount {
+    font-size: 24px;
+  }
+  button {
+    font-size: 16px;
+    padding: 10px 20px;
+  }
+}
+
+</style>
+</head>
+<body>
+<!-- Yandex Games SDK -->
+<script src="https://yandex.ru/games/sdk/v2"></script>
+<script>
+let ysdk;
+YaGames.init().then(ysdk => {
+ysdk = ysdk;
+ysdk.adv.showFullscreenAdv();
+},600);
+</script>
+
+<div id="gameSelectMenu">
+<h1>Select a game</h1>
+<button onclick="showClickMoney()">Click Money</button>
+<button onclick="showComingSoonMessage()">PC Simulator</button>
+<button onclick="showMainMenu()">Back</button>
+</div>
+<div id="mainMenu">
+<button onclick="showGameSelectMenu()">Select Game</button>
+</div>
+<div id="gameScreen">
+<h1 id="clickMoney">Click money</h1>
+<p>Score: <span id="clickCount">0</span></p>
+<p id="balance">Balance: <span id="balanceAmount">0</span> руб</p>
+<p>Energy: <span id="energyCount">100</span></p>
+<p>Time: <span id="timeCount">0</span> Seconds (<span id="timeInMinutes">0</span> minutes, <span id="timeInHours">0</span> Hour, <span id="timeInDays">0</span> day)</p>
+<button onclick="incrementCounter(1)" id="clickButton">Click me (x1)</button>
+<button onclick="showShopMenu()" id="shopButton">Shop</button>
+<button onclick="showMainMenu()" id="mainMenuButton">Main Menu</button>
+<button onclick="exchangeClicksForBalance()" id="exchangeButton">Exchange clicks for balance</button>
+<button onclick="showComingSoonMessage()" id="comingSoonButton">vivod</button>
+</div>
+
+<div id="shopMenu">
+<h1>Shop</h1>
+<button onclick="upgrade()" id="upgradeButton">Upgrade x2 for 100 points</button>
+<button onclick="upgradeEnergyRecovery()" id="upgradeEnergyRecoveryButton">Upgrade energy recovery speed for 5000 points</button>
+<button onclick="showComingSoonMessage()" id="comingSoonButton">x4 Coming Soon</button>
+<button onclick="showGameScreen()" id="backButton">Back</button>
+</div>
+
+<script>
+let energy = 100;
+let clickMultiplier = 1;
+let hasUpgraded = false;
+let hasEnergyUpgrade = false;
+let clicksCount = 0;
+let maxClicksCount = 0;
+let balance = 0;
+let timeCount = 0;
+let energyRecoveryInterval;
+
+window.onload = function() {
+  document.getElementById('mainMenu').style.display = 'block';
+};
+
+function showGameSelectMenu() {
+  document.getElementById('mainMenu').style.display = 'none';
+  document.getElementById('gameSelectMenu').style.display = 'block';
+}
+
+function showClickMoney() {
+  document.getElementById('gameSelectMenu').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'block';
+  document.getElementById('clickMoney').classList.add('animated');
+  document.getElementById('clickMoney').addEventListener('animationend', function() {
+    document.getElementById('clickMoney').classList.remove('animated');
+  }, { once: true });
+  startEnergyRecovery();
+  startTimer();
+}
+function incrementCounter(amount) {
+  if (energy > 0) {
+    energy -= 1;
+    document.getElementById('energyCount').innerText = energy;
+    let clickCount = parseInt(localStorage.getItem('clickCount')) || 0;
+    clickCount += amount * clickMultiplier;
+    localStorage.setItem('clickCount', clickCount);
+    document.getElementById('clickCount').innerText = clickCount;
+    checkUpgrade();
+    clicksCount++;
+    if (clicksCount > maxClicksCount) {
+      maxClicksCount = clicksCount;
+      localStorage.setItem('maxClicksCount', maxClicksCount);
+    }
+  }
+}
+
+function upgrade() {
+  let clickCount = parseInt(localStorage.getItem('clickCount')) || 0;
+  if (clickCount >= 100 && !hasUpgraded) {
+    clickCount -= 100;
+    clickMultiplier *= 2;
+    localStorage.setItem('clickCount', clickCount);
+    localStorage.setItem('clickMultiplier', clickMultiplier);
+    localStorage.setItem('hasUpgraded', true);
+    document.getElementById('clickCount').innerText = clickCount;
+    document.getElementById('clickButton').innerText = `Click me (x${clickMultiplier})`;
+    document.getElementById('upgradeButton').innerText = "Already Purchased";
+    document.getElementById('upgradeButton').disabled = true;
+    hasUpgraded = true;
+  } else {
+    alert("Not enough points!");
+  }
+}
+
+function upgradeEnergyRecovery() {
+  let clickCount = parseInt(localStorage.getItem('clickCount')) || 0;
+  if (clickCount >= 5000 && !hasEnergyUpgrade) {
+    clickCount -= 5000;
+    localStorage.setItem('clickCount', clickCount);
+    document.getElementById('clickCount').innerText = clickCount;
+    document.getElementById('energyCount').innerText = energy;
+    document.getElementById('upgradeEnergyRecoveryButton').innerText = "Already Purchased";
+    document.getElementById('upgradeEnergyRecoveryButton').disabled = true;
+    hasEnergyUpgrade = true;
+    localStorage.setItem('hasEnergyUpgrade', true);
+    stopEnergyRecovery();
+    startEnergyRecovery();
+  } else {
+    alert("Not enough points!");
+  }
+}
+
+function checkUpgrade() {
+  let clickCount = parseInt(localStorage.getItem('clickCount')) || 0;
+  if (clickCount >= 100 && !hasUpgraded) {
+    document.getElementById('upgradeButton').disabled = false;
+  } else {
+    document.getElementById('upgradeButton').disabled = true;
+  }
+  if (clickCount >= 5000 && !hasEnergyUpgrade) {
+    document.getElementById('upgradeEnergyRecoveryButton').disabled = false;
+  } else {
+    document.getElementById('upgradeEnergyRecoveryButton').disabled = true;
+  }
+}
+
+function showGameScreen() {
+  document.getElementById('mainMenu').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'block';
+  document.getElementById('shopMenu').style.display = 'none';
+}
+
+function showShopMenu() {
+  document.getElementById('mainMenu').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('shopMenu').style.display = 'block';
+}
+
+function showMainMenu() {
+  document.getElementById('mainMenu').style.display = 'block';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('shopMenu').style.display = 'none';
+  document.getElementById('gameSelectMenu').style.display = 'none';
+}
+
+function exchangeClicksForBalance() {
+  let clickCount = parseInt(localStorage.getItem('clickCount')) || 0;
+  if (clickCount >= 10000) {
+    clickCount -= 10000;
+    balance += 1;
+    localStorage.setItem('clickCount', clickCount);
+    localStorage.setItem('balance', balance);
+    document.getElementById('clickCount').innerText = clickCount;
+    document.getElementById('balanceAmount').innerText = balance;
+  } else {
+    alert("Not enough clicks!");
+  }
+}
+
+function startEnergyRecovery() {
+  energyRecoveryInterval = setInterval(function() {
+    if (energy === 0) {
+      energy++;
+      document.getElementById('energyCount').innerText = energy;
+    } else if (energy < 100) {
+      energy++;
+      document.getElementById('energyCount').innerText = energy;
+    } else if (energy === 100) {
+      clearInterval(energyRecoveryInterval);
+      startEnergyRecovery();
+    }
+  }, hasEnergyUpgrade ? 500 : 1000);
+}
+
+function stopEnergyRecovery() {
+  clearInterval(energyRecoveryInterval);
+}
+
+function updateShopDisplay() {
+  if (hasUpgraded) {
+    document.getElementById('upgradeButton').innerText = "Already Purchased";
+    document.getElementById('upgradeButton').disabled = true;
+  } else {
+    document.getElementById('upgradeButton').innerText = "Upgrade x2 for 100 points";
+  }
+
+  if (hasEnergyUpgrade) {
+    document.getElementById('upgradeEnergyRecoveryButton').innerText = "Already Purchased";
+    document.getElementById('upgradeEnergyRecoveryButton').disabled = true;
+  } else {
+    document.getElementById('upgradeEnergyRecoveryButton').innerText = "Upgrade energy recovery speed for 5000 points";
+  }
+}
+
+function showComingSoonMessage() {
+  alert("coming soon!");
+}
+
+function startTimer() {
+  setInterval(function() {
+    timeCount++;
+    localStorage.setItem('timeCount', timeCount);
+    document.getElementById('timeCount').innerText = timeCount;
+    let timeInMinutes = Math.floor(timeCount / 60);
+    let timeInHours = Math.floor(timeInMinutes / 60);
+    let timeInDays = Math.floor(timeInHours / 24);
+    document.getElementById('timeInMinutes').innerText = timeInMinutes;
+    document.getElementById('timeInHours').innerText = timeInHours;
+    document.getElementById('timeInDays').innerText = timeInDays;
+  }, 1000);
+}
+
+function startGame() {
+  document.getElementById('clickButton').disabled = false;
+  document.getElementById('shopButton').disabled = false;
+  document.getElementById('mainMenuButton').disabled = false;
+  document.getElementById('exchangeButton').disabled = false;
+  document.getElementById('comingSoonButton').disabled = false;
+  incrementCounter(0);
+}
+
+if (localStorage.getItem('clickCount')) {
+  document.getElementById('clickCount').innerText = localStorage.getItem('clickCount');
+}
+if (localStorage.getItem('clickMultiplier')) {
+  clickMultiplier = parseInt(localStorage.getItem('clickMultiplier'));
+  document.getElementById('clickButton').innerText = "Click me (x" + clickMultiplier + ")";
+}
+if (localStorage.getItem('hasUpgraded')) {
+  hasUpgraded = JSON.parse(localStorage.getItem('hasUpgraded'));
+  if (hasUpgraded) {
+    document.getElementById('upgradeButton').innerText = "Already Purchased";
+    document.getElementById('upgradeButton').disabled = true;
+  }
+}
+if (localStorage.getItem('hasEnergyUpgrade')) {
+  hasEnergyUpgrade = JSON.parse(localStorage.getItem('hasEnergyUpgrade'));
+  if (hasEnergyUpgrade) {
+    document.getElementById('upgradeEnergyRecoveryButton').innerText = "Already Purchased";
+    document.getElementById('upgradeEnergyRecoveryButton').disabled = true;
+  }
+}
+if (localStorage.getItem('maxClicksCount')) {
+  maxClicksCount = parseInt(localStorage.getItem('maxClicksCount'));
+}
+if (localStorage.getItem('balance')) {
+  balance = parseInt(localStorage.getItem('balance'));
+  document.getElementById('balanceAmount').innerText = balance;
+}
+if (localStorage.getItem('timeCount')) {
+  timeCount = parseInt(localStorage.getItem('timeCount'));
+}
+
+if (localStorage.getItem('timeCount')) {
+  timeCount = parseInt(localStorage.getItem('timeCount'));
+  document.getElementById('timeCount').innerText = timeCount;
+  let timeInMinutes = Math.floor(timeCount / 60);
+  let timeInHours = Math.floor(timeInMinutes / 60);
+  let timeInDays = Math.floor(timeInHours / 24);
+  document.getElementById('timeInMinutes').innerText = timeInMinutes;
+  document.getElementById('timeInHours').innerText = timeInHours;
+  document.getElementById('timeInDays').innerText = timeInDays;
+}
+</script>
+</body>
+  </html>
